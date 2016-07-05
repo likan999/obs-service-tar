@@ -1,0 +1,83 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import argparse
+import contextlib
+import os
+import re
+import sys
+import tarfile
+
+_INCLUDE_OPTION = '--include'
+_EXCLUDE_OPTION = '--exclude'
+_ENABLED = 'enabled'
+_DISABLED = 'disabled'
+
+
+def get_binary_buffer(fileobj):
+    if hasattr(fileobj, 'buffer'):
+        return getattr(fileobj, 'buffer')
+    return fileobj
+
+
+@contextlib.contextmanager
+def open_or(path, mode, fallback, dirname=None):
+    if path is not None:
+        if dirname is not None:
+            path = os.path.join(dirname, path)
+        with open(path, mode) as file:
+            yield file
+    else:
+        yield fallback()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Open Build Service source service "tar_utils" that manipulates tar files')
+    parser.add_argument('--in', dest='input', type=str, default=None)
+    parser.add_argument('--out', dest='output', type=str, default=None)
+    parser.add_argument('--outdir', type=str, default='.')
+    parser.add_argument('--strip_prefix', type=str, default=None)
+    parser.add_argument('--delete_input', choices=[_ENABLED, _DISABLED], default=_DISABLED)
+
+    class _PatternAction(argparse.Action):
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            patterns = getattr(namespace, self.dest)
+            patterns.append((option_string, re.compile(values)))
+
+    parser.add_argument(_INCLUDE_OPTION, dest='patterns', default=[], action=_PatternAction)
+    parser.add_argument(_EXCLUDE_OPTION, dest='patterns', default=[], action=_PatternAction)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    with open_or(args.input, 'rb', lambda: get_binary_buffer(sys.stdin)) as infile, \
+        contextlib.closing(tarfile.open(mode='r', fileobj=infile)) as input, \
+        open_or(args.output, 'wb', lambda: get_binary_buffer(sys.stdout), args.outdir) as outfile, \
+        contextlib.closing(tarfile.open(mode='w', fileobj=outfile)) as output:
+        strip_prefix = None
+        if args.strip_prefix is not None:
+            strip_prefix = re.compile('^' + args.strip_prefix)
+
+        for tarinfo in input:
+            include = True
+            for action, regex in args.patterns:
+                match = regex.fullmatch(tarinfo.name)
+                include = match == (action == _INCLUDE_OPTION)
+                if match:
+                    break
+            if include:
+                fileobj = input.extractfile(tarinfo)
+                if strip_prefix is not None:
+                    tarinfo.name = strip_prefix.sub('', tarinfo.name, count=1)
+                if tarinfo.name:
+                    output.addfile(tarinfo, fileobj=fileobj)
+    if args.input is not None and args.delete_input == _ENABLED:
+        os.remove(args.input)
+
+
+if __name__ == '__main__':
+    main()

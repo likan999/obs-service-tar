@@ -1,0 +1,24 @@
+<service name="tar_utils">
+<summary>manipulates tar files</summary>
+   <description>This service manipulates tar files</description>
+   <parameter name="in">
+      <description>Input tar file.</description>
+   </parameter>
+   <parameter name="out">
+      <description>Output tar file.</description>
+   </parameter>
+   <parameter name="include">
+      <description>Regex of files/subdirectories to be included in output.</description>
+   </parameter>
+   <parameter name="exclude">
+      <description>Regex of files/subdirectories to be excluded in output.</description>
+   </parameter>
+   <parameter name="strip_prefix">
+      <description>Regex of prefix of path that will be stripped from each included files/subdirectories.</description>
+   </parameter>
+   <parameter name="delete_input">
+      <description>If enabled, delete the input file after processing.</description>
+      <allowedvalue>enabled</allowedvalue>
+      <allowedvalue>disabled</allowedvalue>
+   </parameter>
+</service>
