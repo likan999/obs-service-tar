@@ -9,6 +9,8 @@ import re
 import sys
 import tarfile
 
+import six
+
 _INCLUDE_OPTION = '--include'
 _EXCLUDE_OPTION = '--exclude'
 _ENABLED = 'enabled'
@@ -24,7 +26,15 @@ def get_binary_buffer(fileobj):
 def lookup(path):
     if path is None:
         return None
-    return glob.glob(path)[0]
+    paths = glob.glob(path)
+    if len(paths) == 1:
+        return paths[0]
+    if not paths:
+        six.print_('No file found for {}, current directory: {}'.format(path, os.listdir()),
+                   file=sys.stderr)
+    else:
+        six.print_('More than one files found for {}: {}'.format(path, paths), file=sys.stderr)
+    sys.exit(1)
 
 
 @contextlib.contextmanager

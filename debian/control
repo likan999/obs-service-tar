@@ -2,12 +2,12 @@ Source: obs-service-tar-utils
 Section: devel
 Priority: extra
 Maintainer: Kan Li <likan999@users.noreply.github.com>
-Build-Depends: debhelper (>= 8.0.0), python3
+Build-Depends: debhelper (>= 8.0.0), sed
 Standards-Version: 3.9.3
 Homepage: https://github.com/likan999/obs-service-tar_utils
 
 Package: obs-service-tar-utils
 Architecture: all
-Depends: ${misc:Depends}, sed, python3
+Depends: ${misc:Depends}, python3, python3-six
 Description: An OBS source service: manipulate tar files
  This is a source service for openSUSE Build Service that manipulates tar files.

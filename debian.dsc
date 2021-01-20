@@ -6,5 +6,5 @@ Provides: obs-service-tar_utils
 Maintainer: Kan Li <likan999@users.noreply.github.com>
 Architecture: all
 Standards-Version: 3.9.3
-Build-Depends: debhelper (>= 8), python3
-
+Build-Depends: debhelper (>= 8), sed
+Depends: python3, python3-six

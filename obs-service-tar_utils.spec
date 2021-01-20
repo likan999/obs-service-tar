@@ -34,8 +34,10 @@ Source:         %name-%version.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 BuildArch:      noarch
 
-BuildRequires:  %{use_python}%{_pkg_base}
 BuildRequires:  %{use_python}-setuptools
+BuildRequires:  sed
+Requires:       %{use_python}%{_pkg_base}
+Requires:       %{use_python}-six
 
 %description
 This is a source service for openSUSE Build Service that manipulates tar files.
