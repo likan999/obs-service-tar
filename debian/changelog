@@ -1,3 +1,9 @@
+obs-service-tar-utils (0.0.2) stable; urgency=medium
+
+ * Add some debug message when input file is not found or ambiguous
+
+-- Kan Li <likan999@users.noreply.github.com>  Wed, 20 Jan 2021 00:17:51 -0800
+
 obs-service-tar-utils (0.0.1) stable; urgency=medium
 
  * Use glob for input file
