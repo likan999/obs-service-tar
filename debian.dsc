@@ -1,6 +1,6 @@
 Format: 1.0
 Source: obs-service-tar_utils
-Version: 0.0.2
+Version: 0.0.3
 Binary: obs-service-tar_utils
 Provides: obs-service-tar_utils
 Maintainer: Kan Li <likan999@users.noreply.github.com>

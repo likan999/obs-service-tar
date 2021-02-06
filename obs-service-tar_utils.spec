@@ -24,7 +24,7 @@
 %define service tar_utils
 
 Name:           obs-service-%{service}
-Version:        0.0.2
+Version:        0.0.3
 Release:        0
 Summary:        An OBS source service: manipulate tar files
 License:        GPL-2.0+
