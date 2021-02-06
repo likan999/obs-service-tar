@@ -4,8 +4,19 @@
    <parameter name="in">
       <description>Input tar file.</description>
    </parameter>
+   <parameter name="in_type">
+      <description>If specified, treat the input file as the corresponding format.</description>
+      <allowedvalue>tar</allowedvalue>
+      <allowedvalue>zip</allowedvalue>
+   </parameter>
    <parameter name="out">
       <description>Output tar file.</description>
+   </parameter>
+   <parameter name="out_type">
+      <description>If specified, create the output file in the specified format.</description>
+      <allowedvalue>bz2</allowedvalue>
+      <allowedvalue>gz</allowedvalue>
+      <allowedvalue>tar</allowedvalue>
    </parameter>
    <parameter name="include">
       <description>Regex of files/subdirectories to be included in output.</description>

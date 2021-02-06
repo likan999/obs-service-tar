@@ -8,13 +8,16 @@ import os
 import re
 import sys
 import tarfile
-
-import six
+import zipfile
 
 _INCLUDE_OPTION = '--include'
 _EXCLUDE_OPTION = '--exclude'
 _ENABLED = 'enabled'
 _DISABLED = 'disabled'
+_TAR = 'tar'
+_TAR_BZ2 = 'bz2'
+_TAR_GZ = 'gz'
+_ZIP = 'zip'
 
 
 def get_binary_buffer(fileobj):
@@ -30,11 +33,10 @@ def lookup(path):
     if len(paths) == 1:
         return paths[0]
     if not paths:
-        six.print_('No file found for {}, current directory: {}'.format(path, os.listdir()),
-                   file=sys.stderr)
+        error_msg = 'No file found for {}, current directory: {}'.format(path, os.listdir())
     else:
-        six.print_('More than one files found for {}: {}'.format(path, paths), file=sys.stderr)
-    sys.exit(1)
+        error_msg = 'More than one files found for {}: {}'.format(path, paths)
+    raise ValueError(error_msg)
 
 
 @contextlib.contextmanager
@@ -48,11 +50,65 @@ def open_or(path, mode, fallback, dirname=None):
         yield fallback()
 
 
+def detect_file_type(path, file_type, for_read=True):
+    if file_type is not None:
+        return file_type
+    if path is not None:
+        if path.endswith('.zip'):
+            if not for_read:
+                raise ValueError('it is not yet supported to create zip archive')
+            return _ZIP
+        if path.endswith('.tar'):
+            return _TAR
+        if path.endswith('.tar.gz'):
+            return _TAR if for_read else _TAR_GZ
+        if path.endswith('.tar.bz2'):
+            return _TAR if for_read else _TAR_BZ2
+        raise ValueError('cannot detect file type, please specify --type')
+    raise ValueError('--type must be specified when {}'.format(
+        'reading from stdin' if for_read else 'writing to stdout'))
+
+
+def open_archive(fileobj, file_type):
+    if file_type == _TAR:
+        return tarfile.open(mode='r', fileobj=fileobj)
+    elif file_type == _ZIP:
+        return zipfile.ZipFile(fileobj, mode='r')
+    else:
+        raise ValueError('invalid file type {}'.format(file_type))
+
+
+def list_archive(infile, file_type):
+    if file_type == _TAR:
+        for tar_info in infile:
+            yield tar_info, lambda info=tar_info: infile.extractfile(info)
+    elif file_type == _ZIP:
+        for zip_info in infile.infolist():
+            tar_info = tarfile.TarInfo(name=zip_info.filename)
+            tar_info.mode = zip_info.external_attr >> 16
+            tar_info.size = zip_info.file_size
+            yield tar_info, lambda name=tar_info.name: infile.open(name)
+    else:
+        raise ValueError('invalid file type {}'.format(file_type))
+
+
+def tarfile_mode(file_type):
+    if file_type == _TAR:
+        return 'w'
+    if file_type == _TAR_BZ2:
+        return 'w:bz2'
+    if file_type == _TAR_GZ:
+        return 'w:gz'
+    raise ValueError('invalid file type {}'.format(file_type))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Open Build Service source service "tar_utils" that manipulates tar files')
     parser.add_argument('--in', dest='input', type=str, default=None)
+    parser.add_argument('--in_type', choices=[_TAR, _ZIP], default=None)
     parser.add_argument('--out', dest='output', type=str, default=None)
+    parser.add_argument('--out_type', choices=[_TAR, _TAR_BZ2, _TAR_GZ], default=None)
     parser.add_argument('--outdir', type=str, default='.')
     parser.add_argument('--strip_prefix', type=str, default=None)
     parser.add_argument('--delete_input', choices=[_ENABLED, _DISABLED], default=_DISABLED)
@@ -71,27 +127,29 @@ def parse_args():
 def main():
     args = parse_args()
 
-    with open_or(lookup(args.input), 'rb', lambda: get_binary_buffer(sys.stdin)) as infile, \
-        contextlib.closing(tarfile.open(mode='r', fileobj=infile)) as input, \
-        open_or(args.output, 'wb', lambda: get_binary_buffer(sys.stdout), args.outdir) as outfile, \
-        contextlib.closing(tarfile.open(mode='w', fileobj=outfile)) as output:
+    input_path = lookup(args.input)
+    input_file_type = detect_file_type(input_path, args.in_type)
+    output_file_type = detect_file_type(args.output, args.out_type, for_read=False)
+    with open_or(input_path, 'rb', lambda: get_binary_buffer(sys.stdin)) as in_file, \
+        contextlib.closing(open_archive(in_file, input_file_type)) as input_archive, \
+        open_or(args.output, 'wb', lambda: get_binary_buffer(sys.stdout), args.outdir) as out_file, \
+        contextlib.closing(tarfile.open(mode=tarfile_mode(output_file_type), fileobj=out_file)) as output_archive:
         strip_prefix = None
         if args.strip_prefix is not None:
             strip_prefix = re.compile('^' + args.strip_prefix)
 
-        for tarinfo in input:
+        for tar_info, file in list_archive(input_archive, input_file_type):
             include = True
             for action, regex in args.patterns:
-                match = regex.fullmatch(tarinfo.name)
+                match = regex.fullmatch(tar_info.name)
                 include = match == (action == _INCLUDE_OPTION)
                 if match:
                     break
             if include:
-                fileobj = input.extractfile(tarinfo)
                 if strip_prefix is not None:
-                    tarinfo.name = strip_prefix.sub('', tarinfo.name, count=1)
-                if tarinfo.name:
-                    output.addfile(tarinfo, fileobj=fileobj)
+                    tar_info.name = strip_prefix.sub('', tar_info.name, count=1)
+                if tar_info.name:
+                    output_archive.addfile(tar_info, fileobj=file())
     if args.input is not None and args.delete_input == _ENABLED:
         os.remove(args.input)
 
