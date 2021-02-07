@@ -4,6 +4,7 @@
 import argparse
 import contextlib
 import glob
+import gzip
 import os
 import re
 import sys
@@ -50,6 +51,17 @@ def open_or(path, mode, fallback, dirname=None):
         yield fallback()
 
 
+@contextlib.contextmanager
+def maybe_compress(fileobj, file_type):
+    if file_type in (_TAR, _TAR_BZ2):
+        yield fileobj
+    elif file_type == _TAR_GZ:
+        with gzip.GzipFile(fileobj=fileobj, mode='w', mtime=0) as gzip_file:
+            yield gzip_file
+    else:
+        raise ValueError('invalid file type {}'.format(file_type))
+
+
 def detect_file_type(path, file_type, for_read=True):
     if file_type is not None:
         return file_type
@@ -92,13 +104,11 @@ def list_archive(infile, file_type):
         raise ValueError('invalid file type {}'.format(file_type))
 
 
-def tarfile_mode(file_type):
-    if file_type == _TAR:
-        return 'w'
+def output_tarfile_mode(file_type):
+    if file_type in (_TAR, _TAR_GZ):
+        return 'w|'
     if file_type == _TAR_BZ2:
-        return 'w:bz2'
-    if file_type == _TAR_GZ:
-        return 'w:gz'
+        return 'w|bz2'
     raise ValueError('invalid file type {}'.format(file_type))
 
 
@@ -133,7 +143,8 @@ def main():
     with open_or(input_path, 'rb', lambda: get_binary_buffer(sys.stdin)) as in_file, \
         contextlib.closing(open_archive(in_file, input_file_type)) as input_archive, \
         open_or(args.output, 'wb', lambda: get_binary_buffer(sys.stdout), args.outdir) as out_file, \
-        contextlib.closing(tarfile.open(mode=tarfile_mode(output_file_type), fileobj=out_file)) as output_archive:
+        maybe_compress(out_file, output_file_type) as maybe_compressed_file, \
+        contextlib.closing(tarfile.open(mode=output_tarfile_mode(output_file_type), fileobj=maybe_compressed_file)) as output_archive:
         strip_prefix = None
         if args.strip_prefix is not None:
             strip_prefix = re.compile('^' + args.strip_prefix)
