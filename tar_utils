@@ -146,10 +146,12 @@ def main():
                 if match:
                     break
             if include:
+                fileobj = file()
                 if strip_prefix is not None:
                     tar_info.name = strip_prefix.sub('', tar_info.name, count=1)
+                    tar_info.pax_headers.pop('path', None)
                 if tar_info.name:
-                    output_archive.addfile(tar_info, fileobj=file())
+                    output_archive.addfile(tar_info, fileobj=fileobj)
     if args.input is not None and args.delete_input == _ENABLED:
         os.remove(args.input)
 
